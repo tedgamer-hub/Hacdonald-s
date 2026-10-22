@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hacdonald's"
+  short_description: "为开发团队生成逐人分配的预算餐单，并使用麦当劳官方接口核价"
+  default_prompt: "使用 $hacdonalds 为我们 3 个人搭配 80 元以内的麦当劳餐食。"
