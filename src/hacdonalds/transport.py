@@ -39,10 +39,18 @@ async def connect(settings: Settings):
         from mcp.client.streamable_http import streamable_http_client
     except (ImportError, importlib.metadata.PackageNotFoundError):
         raise HacdonaldsError("DEPENDENCY_MISSING", "缺少 MCP 依赖，请先运行 uv sync。") from None
+
+    async def preserve_http_error(response):
+        # Otherwise SDK 2.x can convert these into a generic JSON-RPC error
+        # that loses the original HTTP status before public_error sees it.
+        if response.status_code in (401, 403, 429) or response.status_code >= 500:
+            response.raise_for_status()
+
     async with httpx2.AsyncClient(
         headers={"Authorization": f"Bearer {settings.token}"},
         timeout=httpx2.Timeout(settings.timeout_seconds),
         follow_redirects=False,
+        event_hooks={"response": [preserve_http_error]},
     ) as http_client:
         transport = streamable_http_client(ENDPOINT, http_client=http_client)
         async with Client(transport, read_timeout_seconds=settings.timeout_seconds) as client:

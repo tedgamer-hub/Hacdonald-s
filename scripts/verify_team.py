@@ -10,13 +10,14 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+from time import monotonic
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from hacdonalds.cli import read_arguments
 from hacdonalds.client import McDonaldClient
 from hacdonalds.config import load_settings
-from hacdonalds.errors import HacdonaldsError, public_error
+from hacdonalds.errors import HacdonaldsError, error_metadata, public_error
 from hacdonalds.live_check import business_data
 from hacdonalds.meal_workflow import plan_meals, price_candidates
 from hacdonalds.planning import parse_request
@@ -25,21 +26,25 @@ from hacdonalds.transport import connect
 
 
 class RecordingClient:
-    def __init__(self, client, report, checkpoint):
+    def __init__(self, client, report, checkpoint, *, token=""):
         self.client, self.report, self.checkpoint = client, report, checkpoint
+        self.token = token
 
     async def call(self, name, arguments):
+        started = monotonic()
         stage = {"tool": name, "arguments": arguments, "status": "pending"}
         self.report["stages"].append(stage)
         self.checkpoint()
         try:
             response = await self.client.call(name, arguments)
-        except Exception as exc:
-            error = public_error(exc)
-            stage.update(status="failed", error={"code": error.code, "message": str(error)})
+        except BaseException as exc:
+            interrupted = not isinstance(exc, Exception)
+            error = HacdonaldsError("REQUEST_INTERRUPTED", "调用被会话关闭或取消中断，请查看顶层诊断。") if interrupted else public_error(exc)
+            stage.update(status="interrupted" if interrupted else "failed", error={"code": error.code, "message": str(error)},
+                         elapsed_seconds=round(monotonic() - started, 3), diagnostics=error_metadata(exc, token=self.token))
             self.checkpoint()
             raise
-        stage.update(status="returned", response=response)
+        stage.update(status="returned", response=response, elapsed_seconds=round(monotonic() - started, 3))
         self.checkpoint()
         return response
 
@@ -49,10 +54,11 @@ def main(argv=None):
     parser.add_argument("--request", type=Path, default=ROOT / "examples/team-request.json")
     parser.add_argument("--store-search", type=Path, default=ROOT / "examples/store-search.json")
     parser.add_argument("--limit", type=int, choices=range(4, 33), default=24, metavar="4..32")
+    parser.add_argument("--timeout", type=float, default=30, help="每次请求超时秒数，1–120，默认 30")
     args = parser.parse_args(argv)
     logging.disable(logging.CRITICAL)
     destination = ROOT / ".local/team-check.json"
-    report = {"status": "starting", "purpose": "technical_team_planning_check", "stages": []}
+    report = {"status": "starting", "purpose": "technical_team_planning_check", "timeout_seconds": args.timeout, "stages": []}
     token = ""
 
     def checkpoint():
@@ -70,13 +76,13 @@ def main(argv=None):
         nonlocal token
         request = parse_request(read_arguments(args.request))
         report["request"] = request
-        settings = load_settings(ROOT, timeout=15)
+        settings = load_settings(ROOT, timeout=args.timeout)
         token = settings.token
         report["status"] = "connecting"
         checkpoint()
         print("正在连接官方 MCP；完整阶段记录将保存在项目本地。", flush=True)
         async with connect(settings) as transport:
-            client = RecordingClient(McDonaldClient(transport, timeout_seconds=15), report, checkpoint)
+            client = RecordingClient(McDonaldClient(transport, timeout_seconds=args.timeout), report, checkpoint, token=token)
             stores = business_data(await client.call("query-nearby-stores", read_arguments(args.store_search)))
             store = next((s for s in stores if isinstance(s, dict) and s.get("storeCode") == request["store_code"]), None) if isinstance(stores, list) else None
             if store is None or store.get("businessStatus") is not True:
@@ -102,14 +108,14 @@ def main(argv=None):
 
     try:
         asyncio.run(run())
-    except (KeyboardInterrupt, EOFError):
+    except (KeyboardInterrupt, EOFError, asyncio.CancelledError):
         report["status"] = "cancelled"
         checkpoint()
         print(f"已取消。阶段记录：{destination}")
         return 130
     except Exception as exc:
         error = public_error(exc)
-        report.update(status="incomplete", error={"code": error.code, "message": str(error)})
+        report.update(status="incomplete", error={"code": error.code, "message": str(error)}, diagnostics=error_metadata(exc, token=token))
         checkpoint()
         print(f"验证未完成：{error.code}：{error}\n阶段记录：{destination}")
         return 2
