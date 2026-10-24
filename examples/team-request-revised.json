@@ -1,0 +1,32 @@
+{
+  "store_code": "3230320",
+  "budget_fen": 7500,
+  "crew": [
+    {
+      "id": "成员1",
+      "hunger": 3,
+      "drink": "none",
+      "prefer": [
+        "鸡"
+      ],
+      "exclude_keywords": [],
+      "avoid": []
+    },
+    {
+      "id": "成员2",
+      "hunger": 3,
+      "drink": "none",
+      "prefer": [],
+      "exclude_keywords": [],
+      "avoid": []
+    },
+    {
+      "id": "成员3",
+      "hunger": 4,
+      "drink": "optional",
+      "prefer": [],
+      "exclude_keywords": [],
+      "avoid": []
+    }
+  ]
+}
