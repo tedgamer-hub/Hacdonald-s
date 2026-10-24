@@ -2,15 +2,19 @@
 
 Hacdonald's 为黑客松和开发团队规划餐食：Skill 整理逐人需求，Python 生成预算方案，麦当劳官方 MCP 提供菜单和核价。现已具备餐品归一化、成员分配、三策略搜索及官方整篮核价流程。
 
+项目仓库：[tedgamer-hub/Hacdonald-s](https://github.com/tedgamer-hub/Hacdonald-s)。
+
 **当前状态：65 项应用、传输及 SDK 测试通过，两轮真实团队配餐与官方核价已完成。** 2026-10-24 13:57（北京时间），用户终端在沈阳盛京大奥莱餐厅完成 50 个调用：3 人 80 元需求得到 64.00 / 78.50 / 79.00 元三套方案；成员 1 改为不要饮料、预算降为 75 元后，得到 64.00 / 73.50 / 73.50 元三套方案。各套均核对成员要求、商品数量和官方总价。项目内 Skill 已通过需求转换与连续修改试用，尚未安装到全局 Skill 目录。
 
 这些金额是指定门店在该次核价时的结果；再次运行会查询当前价格。实际演示摘要见 `examples/demo-session.md`，完整业务记录只保存在本地。
 
 ## 快速开始
 
-需要 Python 3.11+ 和 uv。以下命令在本项目目录运行。
+需要 Python 3.11+ 和 uv。先获取项目，再在项目目录运行：
 
 ```bash
+git clone https://github.com/tedgamer-hub/Hacdonald-s.git
+cd Hacdonald-s
 uv sync
 python3 scripts/run.py setup
 uv run python scripts/run.py doctor
@@ -122,7 +126,7 @@ uv run python -m unittest discover -s tests -v
 3. 对同一门店查询可售菜单和一个餐品的详情。
 4. 在同一业务上下文中核价一个简单组合，检查上游业务状态和最终金额。
 
-本版不执行订单创建、取消、支付、地址新增、领券或积分兑换。套餐、优惠券和营养优化尚未接入；本地参赛材料不代表已发布仓库或已报名。
+本版不执行订单创建、取消、支付、地址新增、领券或积分兑换。套餐、优惠券和营养优化尚未接入；参赛报名 Issue 尚未提交。
 
 ## 一条命令验收两轮配餐
 
